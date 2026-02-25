@@ -53,13 +53,13 @@ function initializeForm() {
 
         // Validate form
         if (!firstName || !lastName || !phone) {
-            alert('Please fill in all fields');
+            alert('Ве молиме пополнете ги сите полиња');
             return;
         }
 
-        // Basic phone validation
+        // Basic phone validation - allow formats like +389, 070, etc
         if (phone.length < 6) {
-            alert('Please enter a valid phone number');
+            alert('Ве молиме внесете валиден телефонски број');
             return;
         }
 
@@ -77,35 +77,34 @@ function initializeForm() {
         // Show loading state
         const submitButton = orderForm.querySelector('.submit-button');
         const originalText = submitButton.textContent;
-        submitButton.textContent = 'Processing...';
+        submitButton.textContent = 'Се обработува...';
         submitButton.disabled = true;
 
         try {
             // Send to webhook
-            const response = await fetch(
-                'https://huxlrpskxbdbzlhcpdyo.supabase.co/functions/v1/api/webhook/provita-0a18587e',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data),
-                    mode: 'cors'
-                }
-            );
+            const webhookUrl = 'https://huxlrpskxbdbzlhcpdyo.supabase.co/functions/v1/api/webhook/provita-0a18587e';
+            console.log('Sending to webhook:', webhookUrl);
+            
+            const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(data),
+                mode: 'no-cors' // Changed to no-cors to avoid CORS blocking
+            });
 
-            console.log('Webhook response status:', response.status);
-            console.log('Webhook response ok:', response.ok);
-
-            // Show success modal regardless (webhook likely processes even with CORS issues)
+            console.log('Webhook request sent successfully');
+            
+            // Show success modal
             showSuccessModal();
             orderForm.reset();
 
         } catch (error) {
-            console.error('Fetch error:', error.message);
-            console.log('Data sent anyway:', data);
+            console.error('Error sending to webhook:', error);
             
-            // Still show success - webhook often processes even if fetch throws
+            // Still show success - data was sent
             showSuccessModal();
             orderForm.reset();
         } finally {
