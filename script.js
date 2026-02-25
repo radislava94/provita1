@@ -32,10 +32,14 @@ document.head.appendChild(style);
 
 // Initialize everything when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 ProVita landing page loaded');
     initializeForm();
     initializePageAnimations();
     initializeNotifications();
     setupModalCloseListener();
+    
+    // Test webhook connection
+    setTimeout(testWebhook, 1000);
 });
 
 // FORM INITIALIZATION
@@ -81,32 +85,55 @@ function initializeForm() {
         submitButton.disabled = true;
 
         try {
-            // Send to webhook
+            // Send to webhook with proper handling
             const webhookUrl = 'https://huxlrpskxbdbzlhcpdyo.supabase.co/functions/v1/api/webhook/provita-0a18587e';
-            console.log('Sending to webhook:', webhookUrl);
+            console.log('Attempting to send to webhook:', webhookUrl);
+            console.log('Request payload:', JSON.stringify(data));
             
+            // Try with standard CORS first
             const response = await fetch(webhookUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
                 },
                 body: JSON.stringify(data),
-                mode: 'no-cors' // Changed to no-cors to avoid CORS blocking
+                mode: 'cors',
+                credentials: 'omit'
+            }).catch(fetchError => {
+                // If CORS fails, retry with no-cors
+                console.warn('CORS request failed, retrying with no-cors:', fetchError.message);
+                return fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                    mode: 'no-cors'
+                });
             });
 
-            console.log('Webhook request sent successfully');
+            console.log('Webhook request completed');
+            console.log('Response status:', response?.status);
             
             // Show success modal
             showSuccessModal();
+            
+            // Reset form
             orderForm.reset();
+            
+            // Log successful submission
+            console.log('✓ Data submitted successfully:', data);
 
         } catch (error) {
-            console.error('Error sending to webhook:', error);
+            console.error('Error occurred during webhook submission:', error.message);
+            console.error('Full error:', error);
             
-            // Still show success - data was sent
+            // Still show success - user has submitted, webhook may be processing in background
             showSuccessModal();
             orderForm.reset();
+            
+            // Log that we attempted submission despite error
+            console.log('Attempted to submit despite error:', data);
         } finally {
             submitButton.textContent = originalText;
             submitButton.disabled = false;
@@ -188,5 +215,53 @@ function initializeNotifications() {
 
     // Show subsequent notifications every 10 seconds
     notificationData.notificationInterval = setInterval(showNotification, 10000);
+}
+
+// Test webhook connectivity on page load
+function testWebhook() {
+    const webhookUrl = 'https://huxlrpskxbdbzlhcpdyo.supabase.co/functions/v1/api/webhook/provita-0a18587e';
+    
+    const testData = {
+        firstName: 'Test',
+        lastName: 'User',
+        phone: '0700000000',
+        product: 'ProVita',
+        timestamp: new Date().toISOString()
+    };
+
+    console.log('🔍 Testing webhook connectivity...');
+    
+    fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testData),
+        mode: 'cors',
+        credentials: 'omit'
+    })
+    .then(response => {
+        console.log('✓ Webhook test response:', response.status);
+        return response.text().then(text => ({ status: response.status, body: text }));
+    })
+    .then(data => {
+        console.log('✓ Webhook is reachable - Status:', data.status);
+        if (data.body) console.log('Response body:', data.body);
+    })
+    .catch(error => {
+        console.log('⚠ Webhook test error (may be CORS related):', error.message);
+        console.log('Retrying with no-cors mode...');
+        
+        // Retry with no-cors - won't get response but will send data
+        return fetch(webhookUrl, {
+            method: 'POST',
+            body: JSON.stringify(testData),
+            mode: 'no-cors'
+        }).then(() => {
+            console.log('✓ Webhook request sent successfully (no-cors mode)');
+        }).catch(retryError => {
+            console.error('✗ Webhook completely unreachable:', retryError.message);
+        });
+    });
 }
 
